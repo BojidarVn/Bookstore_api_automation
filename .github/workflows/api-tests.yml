@@ -24,6 +24,14 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Install Allure CLI
+        run: |
+          wget https://github.com/allure-framework/allure2/releases/download/2.34.0/allure-2.34.0.tgz
+          tar -zxvf allure-2.34.0.tgz
+          sudo mv allure-2.34.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          allure --version
+
       - name: Run API tests
         run: mvn clean test
 
@@ -35,7 +43,7 @@ jobs:
 
       - name: Generate Allure HTML report
         if: always()
-        run: mvn allure:report
+        run: allure generate target/allure-results --clean --single-file -o target/allure-report
 
       - name: Upload Allure results
         if: always()
@@ -56,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-html-report
-          path: target/site/allure-maven-plugin
+          path: target/allure-report
