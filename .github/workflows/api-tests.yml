@@ -3,8 +3,10 @@ name: API Tests
 on:
   push:
     branches: [ main ]
+
   pull_request:
     branches: [ main ]
+
   workflow_dispatch:
 
 jobs:
@@ -31,6 +33,10 @@ jobs:
           mkdir -p target/allure-results
           cp src/test/resources/environment.properties target/allure-results/environment.properties
 
+      - name: Generate Allure HTML report
+        if: always()
+        run: mvn allure:report
+
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,3 +50,10 @@ jobs:
         with:
           name: surefire-reports
           path: target/surefire-reports
+
+      - name: Upload Allure HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-html-report
+          path: target/site/allure-maven-plugin
