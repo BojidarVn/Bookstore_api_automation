@@ -1,0 +1,7 @@
+target
+.idea
+*.iml
+.git
+.gitignore
+allure-report
+allure-results
