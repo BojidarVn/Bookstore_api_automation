@@ -8,6 +8,7 @@ import io.qameta.allure.*;
 import io.restassured.response.Response;
 import org.testng.annotations.Test;
 
+import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Epic("Bookstore API")
@@ -37,6 +38,8 @@ public class AuthorTests extends BaseTest {
         Response response = authorsClient.getAuthorById(authorId);
 
         assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/author-schema.json"));
 
         Author author = response.as(Author.class);
 
@@ -65,25 +68,49 @@ public class AuthorTests extends BaseTest {
         Response response = authorsClient.createAuthor(author);
 
         assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/author-schema.json"));
 
         Author createdAuthor = response.as(Author.class);
 
         assertThat(createdAuthor.getId()).isEqualTo(author.getId());
+        assertThat(createdAuthor.getIdBook()).isEqualTo(author.getIdBook());
         assertThat(createdAuthor.getFirstName()).isEqualTo(author.getFirstName());
         assertThat(createdAuthor.getLastName()).isEqualTo(author.getLastName());
     }
 
     @Test
-    @Story("Validation - empty first name")
+    @Story("Edge case - empty first name")
     @Severity(SeverityLevel.NORMAL)
-    @Description("Verify API behavior when creating an author with empty first name")
-    public void shouldHandleAuthorWithEmptyFirstName() {
+    @Description("Verify current API behavior when creating an author with an empty first name")
+    public void shouldAcceptAuthorWithEmptyFirstName() {
         Author author = AuthorFactory.createValidAuthor();
         author.setFirstName("");
 
         Response response = authorsClient.createAuthor(author);
 
-        assertThat(response.statusCode()).isIn(200, 400);
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        Author createdAuthor = response.as(Author.class);
+
+        assertThat(createdAuthor.getFirstName()).isEmpty();
+    }
+
+    @Test
+    @Story("Edge case - empty last name")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Verify current API behavior when creating an author with an empty last name")
+    public void shouldAcceptAuthorWithEmptyLastName() {
+        Author author = AuthorFactory.createValidAuthor();
+        author.setLastName("");
+
+        Response response = authorsClient.createAuthor(author);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        Author createdAuthor = response.as(Author.class);
+
+        assertThat(createdAuthor.getLastName()).isEmpty();
     }
 
     @Test
@@ -96,15 +123,42 @@ public class AuthorTests extends BaseTest {
         Author author = AuthorFactory.createValidAuthor();
         author.setId(authorId);
         author.setFirstName("Updated First Name");
+        author.setLastName("Updated Last Name");
 
         Response response = authorsClient.updateAuthor(authorId, author);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/author-schema.json"));
+
+        Author updatedAuthor = response.as(Author.class);
+
+        assertThat(updatedAuthor.getId()).isEqualTo(authorId);
+        assertThat(updatedAuthor.getIdBook()).isEqualTo(author.getIdBook());
+        assertThat(updatedAuthor.getFirstName()).isEqualTo(author.getFirstName());
+        assertThat(updatedAuthor.getLastName()).isEqualTo(author.getLastName());
+    }
+
+    @Test
+    @Story("Update author invalid ID")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Verify current API behavior when updating an author with a non-existing ID")
+    public void shouldAcceptUpdateAuthorWithInvalidId() {
+        int invalidAuthorId = 999999;
+
+        Author author = AuthorFactory.createValidAuthor();
+        author.setId(invalidAuthorId);
+
+        Response response = authorsClient.updateAuthor(invalidAuthorId, author);
 
         assertThat(response.statusCode()).isEqualTo(200);
 
         Author updatedAuthor = response.as(Author.class);
 
-        assertThat(updatedAuthor.getId()).isEqualTo(authorId);
+        assertThat(updatedAuthor.getId()).isEqualTo(invalidAuthorId);
+        assertThat(updatedAuthor.getIdBook()).isEqualTo(author.getIdBook());
         assertThat(updatedAuthor.getFirstName()).isEqualTo(author.getFirstName());
+        assertThat(updatedAuthor.getLastName()).isEqualTo(author.getLastName());
     }
 
     @Test
@@ -116,6 +170,18 @@ public class AuthorTests extends BaseTest {
 
         Response response = authorsClient.deleteAuthor(authorId);
 
-        assertThat(response.statusCode()).isIn(200, 400);
+        assertThat(response.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @Story("Delete author invalid ID")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Verify current API behavior when deleting an author with a non-existing ID")
+    public void shouldHandleDeleteAuthorWithInvalidId() {
+        int invalidAuthorId = 999999;
+
+        Response response = authorsClient.deleteAuthor(invalidAuthorId);
+
+        assertThat(response.statusCode()).isEqualTo(200);
     }
 }

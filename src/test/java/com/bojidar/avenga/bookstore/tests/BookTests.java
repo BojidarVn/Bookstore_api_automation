@@ -8,6 +8,7 @@ import io.qameta.allure.*;
 import io.restassured.response.Response;
 import org.testng.annotations.Test;
 
+import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Epic("Bookstore API")
@@ -37,6 +38,8 @@ public class BookTests extends BaseTest {
         Response response = booksClient.createBook(book);
 
         assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/book-schema.json"));
 
         Book createdBook = response.as(Book.class);
 
@@ -45,45 +48,54 @@ public class BookTests extends BaseTest {
         assertThat(createdBook.getDescription()).isEqualTo(book.getDescription());
         assertThat(createdBook.getPageCount()).isEqualTo(book.getPageCount());
         assertThat(createdBook.getExcerpt()).isEqualTo(book.getExcerpt());
+        assertThat(createdBook.getPublishDate()).isNotBlank();
     }
 
     @Test
-    @Story("Validation - empty title")
+    @Story("Edge case - empty title")
     @Severity(SeverityLevel.NORMAL)
-    @Description("Verify API behavior when creating a book with empty title")
-    public void shouldHandleBookWithEmptyTitle() {
+    @Description("Verify current API behavior when creating a book with an empty title")
+    public void shouldAcceptBookWithEmptyTitle() {
         Book book = BookFactory.createValidBook();
         book.setTitle("");
 
         Response response = booksClient.createBook(book);
 
-        assertThat(response.statusCode()).isIn(200, 400);
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        Book createdBook = response.as(Book.class);
+
+        assertThat(createdBook.getTitle()).isEmpty();
     }
 
     @Test
-    @Story("Validation - negative page count")
+    @Story("Edge case - negative page count")
     @Severity(SeverityLevel.NORMAL)
-    @Description("Verify API behavior when creating a book with negative page count")
-    public void shouldHandleBookWithNegativePageCount() {
+    @Description("Verify current API behavior when creating a book with negative page count")
+    public void shouldAcceptBookWithNegativePageCount() {
         Book book = BookFactory.createValidBook();
         book.setPageCount(-1);
 
         Response response = booksClient.createBook(book);
 
-        assertThat(response.statusCode()).isIn(200, 400);
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        Book createdBook = response.as(Book.class);
+
+        assertThat(createdBook.getPageCount()).isEqualTo(-1);
     }
 
     @Test
-    @Story("Validation - invalid publish date")
+    @Story("Edge case - invalid publish date")
     @Severity(SeverityLevel.NORMAL)
-    @Description("Verify API behavior when creating a book with invalid publish date")
-    public void shouldHandleBookWithInvalidPublishDate() {
+    @Description("Verify that API rejects a book with an invalid publish date")
+    public void shouldRejectBookWithInvalidPublishDate() {
         Book book = BookFactory.createValidBook();
         book.setPublishDate("invalid-date");
 
         Response response = booksClient.createBook(book);
 
-        assertThat(response.statusCode()).isIn(200, 400);
+        assertThat(response.statusCode()).isEqualTo(400);
     }
 
     @Test
@@ -101,12 +113,13 @@ public class BookTests extends BaseTest {
     @Severity(SeverityLevel.CRITICAL)
     @Description("Verify that a book can be retrieved successfully by valid ID")
     public void shouldGetBookByValidId() {
-
         int bookId = 1;
 
         Response response = booksClient.getBookById(bookId);
 
         assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/book-schema.json"));
 
         Book book = response.as(Book.class);
 
@@ -121,7 +134,6 @@ public class BookTests extends BaseTest {
     @Severity(SeverityLevel.CRITICAL)
     @Description("Verify that an existing book can be updated successfully with valid payload")
     public void shouldUpdateBookWithValidPayload() {
-
         int bookId = 1;
 
         Book book = BookFactory.createValidBook();
@@ -133,6 +145,8 @@ public class BookTests extends BaseTest {
         Response response = booksClient.updateBook(bookId, book);
 
         assertThat(response.statusCode()).isEqualTo(200);
+        response.then()
+                .body(matchesJsonSchemaInClasspath("schemas/book-schema.json"));
 
         Book updatedBook = response.as(Book.class);
 
@@ -145,9 +159,8 @@ public class BookTests extends BaseTest {
     @Test
     @Story("Update book invalid ID")
     @Severity(SeverityLevel.NORMAL)
-    @Description("Verify API behavior when updating a book with non-existing ID")
-    public void shouldHandleUpdateBookWithInvalidId() {
-
+    @Description("Verify current API behavior when updating a book with a non-existing ID")
+    public void shouldAcceptUpdateBookWithInvalidId() {
         int invalidBookId = 999999;
 
         Book book = BookFactory.createValidBook();
@@ -155,7 +168,14 @@ public class BookTests extends BaseTest {
 
         Response response = booksClient.updateBook(invalidBookId, book);
 
-        assertThat(response.statusCode()).isIn(200, 404);
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        Book updatedBook = response.as(Book.class);
+
+        assertThat(updatedBook.getId()).isEqualTo(invalidBookId);
+        assertThat(updatedBook.getTitle()).isEqualTo(book.getTitle());
+        assertThat(updatedBook.getDescription()).isEqualTo(book.getDescription());
+        assertThat(updatedBook.getPageCount()).isEqualTo(book.getPageCount());
     }
 
     @Test
@@ -163,10 +183,21 @@ public class BookTests extends BaseTest {
     @Severity(SeverityLevel.CRITICAL)
     @Description("Verify that a book can be deleted successfully by valid ID")
     public void shouldDeleteBookByValidId() {
-
         int bookId = 1;
 
         Response response = booksClient.deleteBook(bookId);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @Story("Delete book invalid ID")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Verify current API behavior when deleting a book with a non-existing ID")
+    public void shouldHandleDeleteBookWithInvalidId() {
+        int invalidBookId = 999999;
+
+        Response response = booksClient.deleteBook(invalidBookId);
 
         assertThat(response.statusCode()).isEqualTo(200);
     }
